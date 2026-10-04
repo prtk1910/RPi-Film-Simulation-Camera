@@ -49,11 +49,13 @@ _CineStill 800T — ISO 100, 1/880 s._
 ## Features
 
 - Live preview with film simulation profiles
-- On-screen controls for film profile, metering, EV, and white balance
+- Larger inset controls for film profile, metering, EV, white balance, and photo resolution
 - Physical shutter button on GPIO26
 - Hold button for shutter set mode, short press to capture or cycle shutter speed
 - Tap-to-zoom focus targeting with 1x / 2x / 4x zoom
 - Focus peaking overlay for manual framing
+- On-demand focus peaking, a translucent screen shutter, and a sleep button
+- Long-press a profile to make it the boot default
 - Pro-Mist bloom effect toggle for shoot-mode output
 - Capture to `/home/pi/Pictures` (`camera.py` uses PNG; the Pi Zero path uses quality-92 JPEG)
 
@@ -69,6 +71,9 @@ The script includes the following film simulation profiles:
 - Ilford B&W
 - Kodak Gold
 - CineStill 800T
+- Warm Natural, Golden Daylight, and Soft Nostalgia
+
+The Pi Zero script has all of the profiles above except CineStill 800T. The three warm profiles use restrained color shifts and light tone changes to keep skin and whites natural. They are inspired by the [Fuji X Weekly recipe collection](https://fujixweekly.com/2026/08/03/top-26-most-popular-fujifilm-recipes-of-2026-so-far-summer-edition/), without copying a particular recipe.
 
 ## Hardware
 
@@ -100,7 +105,7 @@ On Raspberry Pi OS Bookworm 64-bit:
 
 ```bash
 sudo apt update && sudo apt install -y python3-pip python3-opencv libopencv-dev unclutter
-pip3 install picamera2 gpiozero numpy --break-system-packages
+pip3 install picamera2 gpiozero numpy simplejpeg --break-system-packages
 ```
 
 ## Setup
@@ -154,6 +159,12 @@ sudo systemctl enable camera.service
 sudo systemctl start camera.service
 ```
 
+On the original Pi Zero W, full-resolution styled captures need a 128 MB contiguous-memory pool. Add this line under `[all]` in `/boot/firmware/config.txt`, then reboot:
+
+```ini
+dtoverlay=cma,cma-128
+```
+
 ## Useful Commands
 
 ```bash
@@ -166,21 +177,29 @@ sudo systemctl stop camera.service
 ## Usage
 
 - Tap the on-screen `FILM` button to cycle film profiles.
+- Hold the profile name for about 0.8 seconds to make it the boot default. A filled star marks the selected default; the choice is stored at `~/.config/rpi-film-camera/settings.json`.
 - Tap the `Meter`, `EV`, and `WB` buttons to cycle metering, exposure compensation, and white balance.
-- In `camera-pi-zero.py`, tap `Photo: 12MP/3MP` to select the next still resolution; 12 MP is the default.
+- Tap `Photo: 12MP/3MP` to select the next still resolution; 12 MP is the default.
+- Tap `PEAK` to show or hide same-frame focus peaking. It starts off for a faster preview.
+- Tap the translucent round shutter button on the right to take a photo, including when the physical switch is unavailable.
+- Tap `SLEEP` to stop the camera stream and blank the display; tap the display again to wake it.
 - Tap the screen outside the UI to change the zoom anchor point and zoom level.
 - Hold the GPIO26 button for shutter-set mode, then tap to cycle shutter speed.
 - Short press the GPIO26 button to capture an image.
 
 ## Notes
 
-The scripts write captures to `/home/pi/Pictures` with timestamped filenames including the selected film profile, ISO, and shutter speed. The Pi Zero variant logs preview timing about every five seconds and prints acquisition, processing, and JPEG timing for each capture.
+The scripts write captures to `/home/pi/Pictures` with timestamped filenames including the selected film profile, ISO, and shutter speed. `camera.py` saves PNG files, while `camera-pi-zero.py` saves quality-92 JPEG files. Both log preview and capture phase timing. On Pi Zero, Standard and the three warm styles use fast planar-YUV JPEG encoding. Other styled shots convert one YUV capture array to BGR for processing.
 
 Sample images and camera photos are included in the repository.
 
 ## Experimental Pi Zero console/display setup
 
-`camera-pi-zero.py` is an experimental path for the original single-core Zero W. It keeps the existing OpenCV fullscreen window on the Wayland desktop and depends on the SPI display's kernel/DRM driver being installed and exposing that display to the compositor. The physical SPI refresh rate can remain the visible frame-rate ceiling even when the script's processing log reports a higher rate.
+`camera-pi-zero.py` is an experimental path for the original single-core Zero W. It uses an OpenCV fullscreen window in the desktop session and depends on the SPI display's kernel/DRM driver. The physical SPI refresh rate can remain the visible frame-rate ceiling even when the script's processing log reports a higher rate.
+
+On the tested Pi Zero touchscreen, keep the `piscreen` overlay at `speed=18000000`. Higher SPI clocks caused corrupted colors and text. The 12 MP YUV still path also needs `dtoverlay=cma,cma-128` on that unit; reboot after editing `/boot/firmware/config.txt`.
+
+The separate [rpi-simple-camera](https://github.com/prtk1910/rpi-simple-camera) project uses a 240×135 direct-SPI viewfinder with one physical button. It has the same ten styles but no touchscreen controls.
 
 Useful device checks are:
 
